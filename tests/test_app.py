@@ -156,6 +156,100 @@ def test_research_agent_uses_web_search_tool(monkeypatch: pytest.MonkeyPatch) ->
     assert trace[-1]["content"] == "ok"
 
 
+def test_research_agent_handles_incomplete_and_continues(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the initial streamed response is incomplete with no text, the agent
+    should request a continuation with reduced verbosity and effort.
+    """
+
+    # Simple event objects for the stream
+    class ECreated:
+        def __init__(self, rid: str) -> None:
+            self.type = "response.created"
+            self.response = type("Resp", (), {"id": rid})()
+
+    class ECompleted:
+        type = "response.completed"
+
+    class DummyResponseNoText:
+        def __init__(self, rid: str) -> None:
+            self.id = rid
+            self.output_text = None
+            self.status = "incomplete"
+
+            class Incomplete:
+                def model_dump(self):
+                    return {"reason": "max_output_tokens"}
+
+            self.incomplete_details = Incomplete()
+
+        def to_json(self, **_: object):  # used in _log_raw
+            return {"status": self.status, "incomplete_details": {"reason": "max_output_tokens"}}
+
+    class DummyResponseText:
+        def __init__(self, rid: str) -> None:
+            self.id = rid
+            self.output_text = "FINAL"
+
+        def to_json(self, **_: object):
+            return {"status": "completed"}
+
+    class DummyStream:
+        def __init__(self, rid: str) -> None:
+            self._rid = rid
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # pragma: no cover - not needed
+            return False
+
+        def __iter__(self):
+            # Created then completed, but final has no text and is incomplete
+            yield ECreated(self._rid)
+            yield ECompleted()
+
+        def get_final_response(self):
+            return DummyResponseNoText(self._rid)
+
+    captured_calls: list[dict[str, object]] = []
+
+    class DummyClient:
+        def __init__(self) -> None:
+            self.responses = self
+
+        # stream() used first
+        def stream(self, **kwargs):  # type: ignore[override]
+            return DummyStream("resp_1")
+
+        # create() used for continuation
+        def create(self, **kwargs):  # type: ignore[override]
+            captured_calls.append(kwargs)
+            # return a response that now has text so the agent can finish
+            return DummyResponseText("resp_2")
+
+    monkeypatch.setattr(main, "get_openai_client", lambda: DummyClient())
+
+    brief = {
+        "research_question": "RQ",
+        "background_context": "背景",
+        "deliverable_expectations": "期待",
+        "subtopics": ["A"],
+        "tone": "丁寧",
+    }
+
+    trace: list[main.TraceEntry] = []
+    result = main._research_agent(brief, trace)
+
+    assert result == "FINAL"
+    # Ensure we did one continuation call and used a supported reasoning setting
+    assert captured_calls, "No continuation call captured"
+    cont = captured_calls[0]
+    assert cont.get("previous_response_id") == "resp_1"
+    # ユーザー要望により reasoning/text は送信しない
+    assert "reasoning" not in cont
+    assert "text" not in cont
+
+
 def test_extract_answer_handles_summary_text() -> None:
     class DummyResponse:
         output_text = None
