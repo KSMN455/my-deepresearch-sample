@@ -1,0 +1,44 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.envrc
+.direnv/
+
+# uv
+.uv-cache/
+uv.lock.bak
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Linters, type checkers, caches
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# IDE/editor and OS files
+.vscode/
+.idea/
+.DS_Store
+
+# Local secrets / credentials
+openai_api_key.txt
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log

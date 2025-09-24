@@ -1,0 +1,29 @@
+[project]
+name = "deepresearch-sample"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "flask>=3.0.3",
+    "openai>=1.51.2",
+    "pytest>=8.4.2",
+    "ruff>=0.13.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
